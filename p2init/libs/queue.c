@@ -101,9 +101,13 @@ int queue_delete(queue_t queue, void *data)
 	find = find->next;
 	while (find){
 	    if (find->value == data){
+	        if (!find->next){
+	            queue->tail = prev;
+	        }
 	        prev->next = find->next;
 	        find->next = NULL;
 	        free(find);
+            queue->size--;
 	        return 0;
 	    }
 	    find = find->next;
@@ -115,7 +119,23 @@ int queue_delete(queue_t queue, void *data)
 int queue_iterate(queue_t queue, queue_func_t func, void *arg, void **data)
 {
 	/* TODO */
-	return -1;
+	if ((!queue) || (!func)){
+        return -1;
+	}
+	Node_t curr = queue->head;
+	int stop;
+	while (curr){
+	    Node_t next = curr->next;
+	    stop = func(queue, curr->value, arg);
+	    if (stop){
+	        if (data){
+	            *data = curr->value;
+	        }
+	        break;
+	    }
+	    curr = next;
+	}
+	return 0;
 }
 
 int queue_length(queue_t queue)
