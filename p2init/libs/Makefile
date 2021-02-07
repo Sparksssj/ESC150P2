@@ -1,8 +1,8 @@
 targets := libuthread.a
-objs    := queue.o 
+objc    := queue.o queue_tester.o
 
 CC      := gcc
-CFLAGS  := -Wall -Wextra -Werror -MMD
+#CFLAGS  := -Wall -Wextra -Werror -MMD
 
 ifneq ($(V), 1)
 Q = @
@@ -10,16 +10,16 @@ endif
 
 all: $(targets)
 
-deps	:= $(patsubst %.o,%.d,$(objs))
+deps	:= $(patsubst %.o,%.d,$(objc))
 -include $(deps)
 
 libuthread.a: $(objc)
 	@echo "CC $@"
-	$(Q)$(CC) $(CFLAGS) -o $@ $^
+	$(Q)$(CC) -o $@ $^
 
 %.o: %.c
 	@echo "CC $@"
-	$(Q)$(CC) $(CFLAGS) -c -o $@ $<
+	$(Q)$(CC) -c -o $@ $<
 
 clean:
 	@echo "clean"
