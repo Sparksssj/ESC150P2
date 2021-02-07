@@ -1,0 +1,3 @@
+/home/wilson/Desktop/ECS150/ECS150p2-main/p2init/libs/cmake-build-debug/CMakeFiles/rebuild_cache.dir
+/home/wilson/Desktop/ECS150/ECS150p2-main/p2init/libs/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/wilson/Desktop/ECS150/ECS150p2-main/p2init/libs/cmake-build-debug/CMakeFiles/Mythread.dir
