@@ -26,7 +26,10 @@ struct TCB{
     uthread_ctx_t *context;
     void* stackptr;
     int state;
-    int joinwhich;
+    int retval;
+    int joinretval;
+    uthread_t joinwhich;
+    uthread_t joinby;
 };
 
 //Globa variables
@@ -38,19 +41,18 @@ TCB_t Mainthread;
 //queue_t blockedqueue;
 ucontext_t ctx[USHRT_MAX];
 int activethreads[USHRT_MAX];
-int whetherjoined[USHRT_MAX];
 
-
-
-
-TCB_t TCB_init(uthread_t TID, ucontext_t* context, void* stackptr, int state, int joinwhich){
+TCB_t TCB_init(uthread_t TID, ucontext_t* context, void* stackptr, int state, int retval, int joinretval, uthread_t joinwhich, uthread_t joinby){
     TCB_t TCB = malloc(sizeof *TCB);
     TCB -> TID = TID;
     TCB -> context = context;
     TCB -> stackptr = stackptr;
-    TCB -> state = state;
     //0=ready, 1 = running, 2 = blocked
+    TCB -> state = state;
+    TCB -> retval = retval;
+    TCB -> joinretval = joinretval;
     TCB -> joinwhich = joinwhich;
+    TCB -> joinby = joinby;
     return TCB;
 }
 
@@ -61,9 +63,42 @@ Zombie_t Zombie_init(uthread_t TID, int retval){
     return Zombie;
 }
 
+static int change_join(queue_t q, void *data, void *arg)
+{
+    TCB_t TCB = data;
+    uthread_t TID = (uthread_t)(long) arg;
+
+    if (TCB->TID == TID){
+        TCB->state = 0;
+        queue_enqueue(q, TCB);
+        queue_delete(q, TCB);
+        return 1;
+    }
+    return 0;
+}
+
+static int find_TCB(queue_t q, void *data, void *arg)
+{
+    TCB_t TCB = data;
+    uthread_t TID = (uthread_t)(long) arg;
+    (void)q; //unused
+
+    if (TCB->TID == TID){
+        return 1;
+    }
+    return 0;
+}
 
 int uthread_start(int preempt)
 {
+    if (preempt){
+        return 0;
+    }
+    // Not called by the main thread
+    if (AllTID){
+        return -1;
+    }
+
     threadqueue = queue_create();
     zombiequeue = queue_create();
     //blockedqueue = queue_create();
@@ -74,32 +109,49 @@ int uthread_start(int preempt)
 
     //uthread_ctx_init(mainctx, mainstackptr, NULL);
 
-    TCB_t MainTCB = TCB_init(AllTID, mainctx, mainstackptr, 0 , 0);
+    TCB_t MainTCB = TCB_init(AllTID, mainctx, mainstackptr, 0, 0, 0 , 0, 0);
     //queue_enqueue(threadqueue, MainTCB);
     Mainthread = MainTCB;
     Currentthread = MainTCB;
 
-	return -1;
+	return 0;
 }
 
 
 
 int uthread_stop(void)
 {
-	return queue_destroy(threadqueue) == 0;
+    if ((Currentthread == Mainthread) && (!queue_length(threadqueue)) && (!queue_length(zombiequeue))){
+        queue_destroy(threadqueue);
+        queue_destroy(zombiequeue);
+        return 0;
+    }
+    return -1;
 }
 
 int uthread_create(uthread_func_t func)
 {
+    // TID overflow
+    if (AllTID == USHRT_MAX){
+        return -1;
+    }
     AllTID++;
     uthread_t ThisTID = AllTID;
     ucontext_t thisctx = ctx[ThisTID];
 
     void* thisstackptr = uthread_ctx_alloc_stack();
 
-    uthread_ctx_init(&thisctx, thisstackptr, func);
+    // failure in context creation
+    if(uthread_ctx_init(&thisctx, thisstackptr, func)){
+        return -1;
+    }
 
-    TCB_t ThisTCB = TCB_init(ThisTID, &thisctx, thisstackptr, 0, 0);
+    TCB_t ThisTCB = TCB_init(ThisTID, &thisctx, thisstackptr, 0, 0, 0, 0, 0);
+
+    // failure in memory allocation
+    if (!ThisTCB){
+        return -1;
+    }
     ctx[ThisTID] = (*ThisTCB->context);
     queue_enqueue(threadqueue, ThisTCB);
     activethreads[ThisTID] = 1;
@@ -114,18 +166,10 @@ void uthread_yield(void)
     queue_enqueue(threadqueue, Currentthread);
     thisthread = Currentthread;
 
-    while (1) {
-        // When next thread is ready, just run it
-        if (((TCB_t)threadqueue->head->value)->state == 0){
-            //Currentthread = threadqueue->head->value;
-            break;
-        }
-        // Else we will push the next thread to the end of the queue, and check next of the next thread.
-        else {
-            TCB_t movetoback;
-            queue_dequeue(threadqueue, (void **)&movetoback);
-            queue_enqueue(threadqueue, movetoback);
-        }
+    while (((TCB_t)threadqueue->head->value)->state != 0) {
+        TCB_t movetoback;
+        queue_dequeue(threadqueue, (void **)&movetoback);
+        queue_enqueue(threadqueue, movetoback);
     }
 
     Currentthread = threadqueue->head->value;
@@ -137,85 +181,84 @@ void uthread_yield(void)
 
 uthread_t uthread_self(void)
 {
-	return ((TCB_t)threadqueue->head->value)->TID;
+    if (Currentthread != Mainthread){
+        return ((TCB_t)threadqueue->head->value)->TID;
+    }
+	return 0;
 }
 
 void uthread_exit(int retval)
 {
-    Zombie_t newZombie = Zombie_init(Currentthread->TID, retval);
-    activethreads[Currentthread->TID] = 0;
-    queue_enqueue(zombiequeue, newZombie);
-    queue_dequeue(threadqueue, (void **)&Currentthread);
-
     TCB_t thisthread;
-    thisthread = Currentthread;
-
-    if (threadqueue->size != 0){
-
-        while (1) {
-            /* When this first thread in queue is not the parent thread of the exit thread,
-             * and this thread is blocked, it means this thread need to wait longer until the thread
-             * it joined to finish. So just push this to the end of the queue.
-             * */
-            if ((((TCB_t)threadqueue->head->value)->joinwhich != thisthread->TID) &&  ((TCB_t)threadqueue->head->value)->state == 2 ){
-                TCB_t moveback;
-                queue_dequeue(threadqueue, (void **)&moveback);
-                queue_enqueue(threadqueue, moveback);
-            }
-            // If the first thread in queue is ready, then just run it.
-            else if (((TCB_t)threadqueue->head->value)->state == 0) {
-
-                Currentthread = threadqueue->head->value;
-                uthread_ctx_switch(&ctx[thisthread->TID], &ctx[Currentthread->TID]);
-                break;
-            }
-            /* The other situation should be the first thread in queue is the parent of the exit thread.
-             * In this case, we should reset the joined thread to 0, which implies it doesn't joining any thread
-             * currently, and then set the state of this thread to ready.
-             * */
-            else {
-                ((TCB_t)threadqueue->head->value)->joinwhich = 0;
-                ((TCB_t)threadqueue->head->value)->state = 0;
-                TCB_t moveback;
-                queue_dequeue(threadqueue, (void **)&moveback);
-                queue_enqueue(threadqueue, moveback);
-
-            }
+    queue_dequeue(threadqueue, (void **) &thisthread);
+    uthread_t thisTID = thisthread->TID;
+    // exit thread is joined
+    if ((thisthread->joinby) || (Mainthread->joinwhich == thisTID)){
+        if (!queue_length(threadqueue)){
+            Mainthread->joinretval = retval;
+            free(thisthread);
+            Currentthread = Mainthread;
+            uthread_ctx_switch(&ctx[thisTID], &ctx[0]);
+            return;
         }
-
-    } else{
-        Currentthread = Mainthread;
-        uthread_ctx_switch(&ctx[thisthread->TID], &ctx[0]);
+        if (Mainthread->joinwhich == thisTID){
+            Mainthread->joinretval = retval;
+            Currentthread = Mainthread;
+            uthread_ctx_switch(&ctx[thisTID], &ctx[0]);
+            return;
+        }
+        queue_iterate(threadqueue, change_join, (void*)(long)thisthread->joinby, NULL);
+        ((TCB_t )threadqueue->tail->value)->joinretval = retval;
+        activethreads[thisTID] = 0;
+        free(thisthread);
+    } else {
+        queue_enqueue(zombiequeue, thisthread);
+        thisthread->retval = retval;
+        if (!queue_length(threadqueue)){
+            Currentthread = Mainthread;
+            uthread_ctx_switch(&ctx[thisTID], &ctx[0]);
+            return;
+        }
     }
-
-
+    while (((TCB_t)threadqueue->head->value)->state != 0) {
+        TCB_t movetoback;
+        queue_dequeue(threadqueue, (void **)&movetoback);
+        queue_enqueue(threadqueue, movetoback);
+    }
+    Currentthread = threadqueue->head->value;
+    Currentthread->state = 1;
+    uthread_ctx_switch(&ctx[thisTID], &ctx[Currentthread->TID]);
 }
 
 int uthread_join(uthread_t tid, int *retval)
 {
-    if (tid == 0 || tid == Currentthread->TID || !activethreads[tid] || whetherjoined[tid]){
+    TCB_t joinedthread_w = NULL;
+    TCB_t joinedthread_z = NULL;
+    queue_iterate(threadqueue, find_TCB, (void*)(long)tid, (void**)&joinedthread_w);
+    queue_iterate(zombiequeue, find_TCB, (void*)(long)tid, (void**)&joinedthread_z);
+    if (tid == 0 || tid == Currentthread->TID || !activethreads[tid] || (joinedthread_w && joinedthread_w->joinby)){
         return -1;
     } else {
-        whetherjoined[tid] = 1;
-        Currentthread->state = 2;
-        Currentthread->joinwhich = tid;
-        //queue_enqueue(blockedqueue, Currentthread);
-        TCB_t thisthread = Currentthread;
-
-
-        while (1) {
-            if (((TCB_t)threadqueue->head->value)->state == 0){
-                Currentthread = threadqueue->head->value;
-                break;
-            } else {
+        if (joinedthread_z){
+            *retval = joinedthread_z->retval;
+            free(joinedthread_z);
+            return 0;
+        } else {
+            TCB_t thisthread = Currentthread;
+            thisthread->state = 2;
+            thisthread->joinwhich = joinedthread_w->TID;
+            joinedthread_w->joinby = thisthread->TID;
+            while (((TCB_t)threadqueue->head->value)->state != 0) {
                 TCB_t movetoback;
                 queue_dequeue(threadqueue, (void **)&movetoback);
                 queue_enqueue(threadqueue, movetoback);
             }
+            Currentthread = threadqueue->head->value;
+            Currentthread->state = 0;
+            uthread_ctx_switch(&ctx[thisthread->TID], &ctx[Currentthread->TID]);
+            *retval = thisthread->joinretval;
+            return 0;
         }
-
-        uthread_ctx_switch(&ctx[thisthread->TID], &ctx[Currentthread->TID]);
-        return 0;
     }
 }
 

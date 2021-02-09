@@ -15,41 +15,60 @@
 
 #include "uthread.h"
 
+
+int thread5(void)
+{
+    printf("5 thread%d\n", uthread_self());
+    return 5;
+}
+
+int thread4(void)
+{
+    int c = 0;
+    int* ptr = &c;
+    uthread_join(2, ptr);
+    uthread_create(thread5);
+    uthread_yield();
+    printf("4 thread%d  return value:%d\n", uthread_self(),*ptr);
+    return 4;
+}
+
 int thread3(void)
 {
-	uthread_yield();
-	printf("haha.thread%d\n", uthread_self());
-	return 0;
+    int b = 0;
+    int* ptr = &b;
+    uthread_join(uthread_create(thread4), ptr);
+    printf("3 thread%d  return value:%d\n", uthread_self(),*ptr);
+    return 3;
 }
 
 int thread2(void)
 {
-    //uthread_join(uthread_create(thread3), NULL);
-
     uthread_create(thread3);
-	uthread_yield();
-	printf("xixi,thread%d\n", uthread_self());
-	return 0;
+    uthread_yield();
+    printf("2 thread%d\n", uthread_self());
+    return 2;
 }
 
 int thread1(void)
 {
-    uthread_join(uthread_create(thread2), NULL);
-
-    //uthread_create(thread2);
-	//uthread_yield();
-	printf("hehe,thread%d\n", uthread_self());
-	//uthread_yield();
-	return 0;
+    uthread_create(thread2);
+    uthread_yield();
+    printf("1 thread%d\n", uthread_self());
+    uthread_yield();
+    uthread_yield();
+    uthread_yield();
+    uthread_yield();
+    return 1;
 }
 
 int main(void)
 {
+    int a = 0;
+    int* ptr = &a;
 	uthread_start(0);
-	uthread_join(uthread_create(thread1), NULL);
-    //uthread_join(uthread_create(thread2), NULL);
-
-    uthread_stop();
-
+	uthread_join(uthread_create(thread1), ptr);
+    printf("0 thread%d  return value:%d\n", uthread_self(),*ptr);
+	uthread_stop();
 	return 0;
 }
