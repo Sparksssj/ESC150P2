@@ -8,12 +8,6 @@ ifneq ($(V), 1)
 Q = @
 endif
 
-ifneq ($(D), 1)
-CFLAGS	+= -02
-else 
-CFLAGS	+= -g
-endif
-
 all: $(targets)
 
 deps	:= $(patsubst %.o,%.d,$(objc))
