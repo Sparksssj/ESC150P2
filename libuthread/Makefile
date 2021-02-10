@@ -1,5 +1,5 @@
 targets := libuthread.a
-objc    := uthread.o preempt.o queue.o 
+objc    := uthread.o preempt.o queue.o context.o
 
 CC      := gcc
 CFLAGS  := -Wall -Wextra -Werror -MMD
