@@ -19,7 +19,7 @@ struct itimerval timer, timer_restore;
 struct sigaction signal_handler, signal_handler_restore;
 sigset_t signal_sets;
 
-void termination_handler (int signum)
+void termination_handler ()
 {
     printf("a\n");
     uthread_yield();
