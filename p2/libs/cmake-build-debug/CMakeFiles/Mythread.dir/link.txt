@@ -1,1 +1,0 @@
-/usr/bin/cc -g   CMakeFiles/Mythread.dir/uthread_yield.c.o CMakeFiles/Mythread.dir/uthread.c.o CMakeFiles/Mythread.dir/context.c.o  -o Mythread 

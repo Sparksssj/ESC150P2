@@ -1,3 +1,0 @@
-/home/sparks/Desktop/p2/libs/cmake-build-debug/CMakeFiles/rebuild_cache.dir
-/home/sparks/Desktop/p2/libs/cmake-build-debug/CMakeFiles/Mythread.dir
-/home/sparks/Desktop/p2/libs/cmake-build-debug/CMakeFiles/edit_cache.dir
