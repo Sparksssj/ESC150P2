@@ -12,6 +12,7 @@ ifneq ($(D), 1)
 CFLAGS	+= -02
 else 
 CFLAGS	+= -g
+endif
 
 all: $(targets)
 
