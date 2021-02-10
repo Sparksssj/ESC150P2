@@ -1,5 +1,5 @@
 targets := libuthread.a
-objc    := uthread.o private.o preempt.o queue.o
+objc    := uthread.o preempt.o queue.o 
 
 CC      := gcc
 CFLAGS  := -Wall -Wextra -Werror -MMD
@@ -7,6 +7,11 @@ CFLAGS  := -Wall -Wextra -Werror -MMD
 ifneq ($(V), 1)
 Q = @
 endif
+
+ifneq ($(D), 1)
+CFLAGS	+= -02
+else 
+CFLAGS	+= -g
 
 all: $(targets)
 
