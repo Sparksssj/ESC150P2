@@ -2,7 +2,7 @@ targets := libuthread.a
 objc    := uthread.o preempt.o queue.o context.o
 
 CC      := gcc
-CFLAGS  := -Wall -Wextra -Werror -MMD
+#CFLAGS  := -Wall -Wextra -Werror -MMD
 
 ifneq ($(V), 1)
 Q = @
@@ -15,11 +15,11 @@ deps	:= $(patsubst %.o,%.d,$(objc))
 
 libuthread.a: $(objc)
 	@echo "CC $@"
-	$(Q)$(CC) $(CFLAGS) -o $@ $^
+	$(Q)$(CC) -o $@ $^
 
 %.o: %.c
 	@echo "CC $@"
-	$(Q)$(CC) $(CFLAGS) -c -o $@ $<
+	$(Q)$(CC) -c -o $@ $<
 
 clean:
 	@echo "clean"
