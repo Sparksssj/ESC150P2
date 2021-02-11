@@ -9,7 +9,7 @@
 
 #include "private.h"
 #include "uthread.h"
-
+#include "queue.h"
 
 typedef struct TCB* TCB_t;
 typedef struct ZombieState* Zombie_t;
