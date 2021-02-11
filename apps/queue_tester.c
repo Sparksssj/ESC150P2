@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "queue.h"
+#include <queue.h>
 
 /* Callback function that increments integer items by a certain value (or delete
  * item if item is value 42) */
