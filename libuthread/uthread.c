@@ -10,8 +10,12 @@
 #include "private.h"
 #include "uthread.h"
 #include "queue.h"
-#include "queue.c"
 
+#define READY 0
+#define RUNNING 1
+#define BLOCKED 2
+#define ACTIVE 1
+#define INACTIVE 0
 typedef struct TCB* TCB_t;
 
 
@@ -67,14 +71,13 @@ TCB_t TCB_init(uthread_t TID, ucontext_t* context, void* stackptr, int state, in
     return TCB;
 }
 
-
 static int change_join(queue_t q, void *data, void *arg)
 {
     TCB_t TCB = data;
     uthread_t TID = (uthread_t)(long) arg;
 
     if (TCB->TID == TID){
-        TCB->state = 0;
+        TCB->state = READY;
         queue_enqueue(q, TCB);
         queue_delete(q, TCB);
         return 1;
@@ -114,7 +117,7 @@ int uthread_start(int preempt)
     // Initialize the Mainthread, and store it properly.
     void* mainstackptr = uthread_ctx_alloc_stack();
     ucontext_t mainctx = ctx[0];
-    TCB_t MainTCB = TCB_init(AllTID, &mainctx, mainstackptr, 1, 0, 0 , 0, 0);
+    TCB_t MainTCB = TCB_init(AllTID, &mainctx, mainstackptr, RUNNING, 0, 0 , 0, 0);
 
     // failure in memory allocation
     if (!MainTCB){
@@ -162,7 +165,7 @@ int uthread_create(uthread_func_t func)
     if(uthread_ctx_init(&thisctx, thisstackptr, func)){
         return -1;
     }
-    TCB_t ThisTCB = TCB_init(ThisTID, &thisctx, thisstackptr, 0, 0, 0, 0, 0);
+    TCB_t ThisTCB = TCB_init(ThisTID, &thisctx, thisstackptr, READY, 0, 0, 0, 0);
 
     // failure in memory allocation
     if (!ThisTCB){
@@ -172,7 +175,7 @@ int uthread_create(uthread_func_t func)
 
     // Add the new thread in the thread queue, and change it to active.
     queue_enqueue(threadqueue, ThisTCB);
-    activethreads[ThisTID] = 1;
+    activethreads[ThisTID] = ACTIVE;
 
     return ThisTID;
 }
@@ -185,8 +188,9 @@ void uthread_yield(void)
     queue_enqueue(threadqueue, Currentthread);
     thisthread = Currentthread;
 
+
     // If the first thread is not ready, push it to the back.
-    while (((TCB_t)threadqueue->head->value)->state != 0) {
+    while (((TCB_t)threadqueue->head->value)->state != READY) {
         TCB_t movetoback;
         queue_dequeue(threadqueue, (void **)&movetoback);
         queue_enqueue(threadqueue, movetoback);
@@ -194,8 +198,8 @@ void uthread_yield(void)
 
     // Change to the next available thread.
     Currentthread = threadqueue->head->value;
-    thisthread->state = 0;
-    Currentthread->state = 1;
+    thisthread->state = READY;
+    Currentthread->state = RUNNING;
     uthread_ctx_switch(&ctx[thisthread->TID], &ctx[Currentthread->TID]);
 
 }
@@ -219,7 +223,7 @@ void uthread_exit(int retval)
         queue_iterate(threadqueue, change_join, (void*)(long)thisthread->joinby, NULL);
         ((TCB_t )threadqueue->tail->value)->joinretval = retval;
         // Set the thread to inactive.
-        activethreads[thisTID] = 0;
+        activethreads[thisTID] = INACTIVE;
         free(thisthread);
     } else {
         // Send it to zombie thread if it is not joined.
@@ -227,14 +231,14 @@ void uthread_exit(int retval)
         thisthread->retval = retval;
     }
     // Find the next available value.
-    while (((TCB_t)threadqueue->head->value)->state != 0) {
+    while (((TCB_t)threadqueue->head->value)->state != READY) {
         TCB_t movetoback;
         queue_dequeue(threadqueue, (void **)&movetoback);
         queue_enqueue(threadqueue, movetoback);
     }
     // Change to the next available thread.
     Currentthread = threadqueue->head->value;
-    Currentthread->state = 1;
+    Currentthread->state = RUNNING;
     uthread_ctx_switch(&ctx[thisTID], &ctx[Currentthread->TID]);
 }
 
@@ -263,19 +267,20 @@ int uthread_join(uthread_t tid, int *retval)
         } else {
             // Block the current state.
             TCB_t thisthread = Currentthread;
-            thisthread->state = 2;
+            thisthread->state = BLOCKED;
             // Set TCB of the relationship of these two threads.
             thisthread->joinwhich = joinedthread_w->TID;
             joinedthread_w->joinby = thisthread->TID;
 
             // Find the next available thread, and run it.
-            while (((TCB_t)threadqueue->head->value)->state != 0) {
+            while (((TCB_t)threadqueue->head->value)->state != READY) {
                 TCB_t movetoback;
                 queue_dequeue(threadqueue, (void **)&movetoback);
                 queue_enqueue(threadqueue, movetoback);
             }
             Currentthread = threadqueue->head->value;
-            Currentthread->state = 0;
+            thisthread->state = READY;
+            Currentthread->state = RUNNING;
             uthread_ctx_switch(&ctx[thisthread->TID], &ctx[Currentthread->TID]);
 
             // Collect return value if needed.
