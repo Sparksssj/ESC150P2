@@ -97,6 +97,25 @@ static int find_TCB(queue_t q, void *data, void *arg)
     return 0;
 }
 
+static int find_ready(queue_t q, void *data, void *arg)
+{
+    TCB_t TCB = data;
+
+    // unused block
+    (void)q;
+    int TID = (uthread_t)(long) arg;
+    if (TID == -1){
+        return 0;
+    }
+
+    if (TCB->state == READY){
+        return 1;
+    }
+    queue_dequeue(q, (void**)&data);
+    queue_enqueue(q, data);
+    return 0;
+}
+
 /* Initialize the multithreads working.*/
 int uthread_start(int preempt)
 {
@@ -188,16 +207,10 @@ void uthread_yield(void)
     queue_enqueue(threadqueue, Currentthread);
     thisthread = Currentthread;
 
-
     // If the first thread is not ready, push it to the back.
-    while (((TCB_t)threadqueue->head->value)->state != READY) {
-        TCB_t movetoback;
-        queue_dequeue(threadqueue, (void **)&movetoback);
-        queue_enqueue(threadqueue, movetoback);
-    }
+    queue_iterate(threadqueue, find_ready, thisthread, (void**)&Currentthread);
 
     // Change to the next available thread.
-    Currentthread = threadqueue->head->value;
     thisthread->state = READY;
     Currentthread->state = RUNNING;
     uthread_ctx_switch(&ctx[thisthread->TID], &ctx[Currentthread->TID]);
@@ -207,13 +220,14 @@ void uthread_yield(void)
 uthread_t uthread_self(void)
 {
     // Return the TID of current thread.
-    return ((TCB_t)threadqueue->head->value)->TID;
+    return Currentthread->TID;
 }
 
 void uthread_exit(int retval)
 {
     // Delete the exit thread from the queue.
     TCB_t thisthread;
+    TCB_t unblockedthread;
     queue_dequeue(threadqueue, (void **) &thisthread);
     uthread_t thisTID = thisthread->TID;
 
@@ -221,7 +235,8 @@ void uthread_exit(int retval)
     if ((thisthread->joinby) || (Mainthread->joinwhich == thisTID)){
         // Find the parent thread and give the return value to it.
         queue_iterate(threadqueue, change_join, (void*)(long)thisthread->joinby, NULL);
-        ((TCB_t )threadqueue->tail->value)->joinretval = retval;
+        queue_iterate(threadqueue, find_TCB, (void*)(long)thisthread->joinby, (void**)&unblockedthread);
+        unblockedthread->joinretval = retval;
         // Set the thread to inactive.
         activethreads[thisTID] = INACTIVE;
         free(thisthread);
@@ -231,13 +246,9 @@ void uthread_exit(int retval)
         thisthread->retval = retval;
     }
     // Find the next available value.
-    while (((TCB_t)threadqueue->head->value)->state != READY) {
-        TCB_t movetoback;
-        queue_dequeue(threadqueue, (void **)&movetoback);
-        queue_enqueue(threadqueue, movetoback);
-    }
+    queue_iterate(threadqueue, find_ready, thisthread, (void**)&Currentthread);
+
     // Change to the next available thread.
-    Currentthread = threadqueue->head->value;
     Currentthread->state = RUNNING;
     uthread_ctx_switch(&ctx[thisTID], &ctx[Currentthread->TID]);
 }
@@ -273,13 +284,7 @@ int uthread_join(uthread_t tid, int *retval)
             joinedthread_w->joinby = thisthread->TID;
 
             // Find the next available thread, and run it.
-            while (((TCB_t)threadqueue->head->value)->state != READY) {
-                TCB_t movetoback;
-                queue_dequeue(threadqueue, (void **)&movetoback);
-                queue_enqueue(threadqueue, movetoback);
-            }
-            Currentthread = threadqueue->head->value;
-            thisthread->state = READY;
+            queue_iterate(threadqueue, find_ready, thisthread, (void**)&Currentthread);
             Currentthread->state = RUNNING;
             uthread_ctx_switch(&ctx[thisthread->TID], &ctx[Currentthread->TID]);
 
