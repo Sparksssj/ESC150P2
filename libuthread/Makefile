@@ -13,7 +13,7 @@ endif
 
 all: $(targets)
 
-deps	:= $(patsubst %.o,%.d,$(objc))
+deps	:= $(patsubset %.o,%.d,$(objc))
 -include $(deps)
 
 $(targets): $(objc)
