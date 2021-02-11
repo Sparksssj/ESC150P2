@@ -1,9 +1,9 @@
-lib	:= libuthread.a
+lib		:= libuthread.a
 objc	:= uthread.o preempt.o queue.o context.o
-
-CC	:= gcc
-RCS	:= ar rcs
-CFLAGS	:= -Wall -Wextra -Werror
+inter	:= uthread.d preempt.d queue.d context.d
+CC		:= gcc
+RCS		:= ar rcs
+CFLAGS	:= -Wall -Wextra -Werror -MMD
 
 # CFLAGS += -g
 
@@ -18,7 +18,7 @@ deps	:= $(patsubset %.o,%.d,$(objc))
 
 $(lib): $(objc)
 	@echo "RCS $@"
-	$(Q)$(RCC) $@ $^
+	$(Q)$(RCS) $@ $^
 
 %.o: %.c
 	@echo "CC $@"
@@ -26,4 +26,4 @@ $(lib): $(objc)
 
 clean:
 	@echo "clean"
-	$(Q)rm -f $(lib) $(objc) $(deps)
+	$(Q)rm -f $(lib) $(objc) $(deps) $(inter)
