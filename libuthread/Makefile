@@ -1,9 +1,9 @@
-targets := libuthread.a
-objc    := uthread.o preempt.o queue.o context.o
+lib		:= libuthread.a
+objc	:= uthread.o preempt.o queue.o context.o
 
-CC      := gcc
-RCS     := ar rcs
-CFLAGS  := -Wall -Wextra -Werror -MMD
+CC		:= gcc
+RCS		:= ar rcs
+CFLAGS	:= -Wall -Wextra -Werror -MMD
 
 # CFLAGS += -g
 
@@ -11,12 +11,12 @@ ifneq ($(V), 1)
 Q = @
 endif
 
-all: $(targets)
+all: $(lib)
 
 deps	:= $(patsubset %.o,%.d,$(objc))
 -include $(deps)
 
-$(targets): $(objc)
+$(lib): $(objc)
 	@echo "RCS $@"
 	$(Q)$(RCC) $@ $^
 
@@ -26,4 +26,4 @@ $(targets): $(objc)
 
 clean:
 	@echo "clean"
-	$(Q)rm -f $(targets) $(objc) $(deps)
+	$(Q)rm -f $(lib) $(objc) $(deps)
