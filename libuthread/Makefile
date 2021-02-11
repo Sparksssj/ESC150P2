@@ -2,7 +2,10 @@ targets := libuthread.a
 objc    := uthread.o preempt.o queue.o context.o
 
 CC      := gcc
+RCS     := ar rcs
 CFLAGS  := -Wall -Wextra -Werror -MMD
+
+# CFLAGS += -g
 
 ifneq ($(V), 1)
 Q = @
@@ -13,9 +16,9 @@ all: $(targets)
 deps	:= $(patsubst %.o,%.d,$(objc))
 -include $(deps)
 
-libuthread.a: $(objc)
-	@echo "CC $@"
-	$(Q)$(CC) $(CFLAGS) -o $@ $^
+$(targets): $(objc)
+	@echo "RCS $@"
+	$(Q)$(RCC) $@ $^
 
 %.o: %.c
 	@echo "CC $@"
