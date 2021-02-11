@@ -9,7 +9,6 @@
 
 #include "private.h"
 #include "uthread.h"
-#include "queue.c"
 
 
 typedef struct TCB* TCB_t;
