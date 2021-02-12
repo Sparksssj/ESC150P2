@@ -2,7 +2,8 @@
 programs := \
 	queue_tester.x \
 	uthread_hello.x \
-	uthread_yield.x
+	uthread_yield.x \
+	test_preempt.x
 
 # User-level thread library
 UTHREADLIB := libuthread
