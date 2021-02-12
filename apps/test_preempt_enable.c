@@ -15,6 +15,8 @@ int thread2(void)
 {
     uthread_create(thread3);
     uthread_yield();
+    preempt_disable();
+    preempt_enable();
     while(1);
     printf("thread%d\n", uthread_self());
     return 0;
@@ -29,7 +31,7 @@ int thread1(void)
     return 0;
 }
 
-void preempt_start_test(void)
+void preempt_enable_test(void)
 {
     uthread_start(1);
     uthread_join(uthread_create(thread1), NULL);
@@ -38,8 +40,8 @@ void preempt_start_test(void)
 
 int main(void)
 {
-    fprintf(stderr, "*** TEST preempt start ***\n");
+    fprintf(stderr, "*** TEST preempt enable ***\n");
     fprintf(stderr, "*** should print thread 1 thread 3 ***\n");
-    preempt_start_test();
+    preempt_enable_test();
     return 0;
 }
