@@ -21,7 +21,6 @@ sigset_t signal_sets;
 
 void termination_handler ()
 {
-    printf("a\n");
     uthread_yield();
 }
 
@@ -47,6 +46,7 @@ void preempt_stop(void)
     timer.it_interval.tv_usec = 0;
     timer.it_value.tv_sec = 0;
     timer.it_value.tv_usec = 0;
+    signal_handler = signal_handler_restore;
 }
 
 void preempt_enable(void)
