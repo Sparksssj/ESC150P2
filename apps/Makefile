@@ -6,7 +6,10 @@ programs := \
 	test_preempt.x \
 	test_preempt_stop.x \
 	test_preempt_enable.x \
-	test_preempt_disable.x
+	test_preempt_disable.x \
+	uthread_tester1.x \
+	uthread_tester2.x \
+	uthread_tester3.x 
 
 # User-level thread library
 UTHREADLIB := libuthread
