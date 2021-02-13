@@ -20,11 +20,13 @@ Note: Variables names are **bold**. Function names are _italic_.
 ### The Underlying Data Structure Queue
 
 #### Composition of Queue
-Our queue is implemented as a linked list, and has three members **head**, 
-**tail**, and **size**. **head** and **tail** point to the first and the last
-node in the queue, and the **size** keeps track of the length of the queue.
-We also created a struct for each node in the queue, which has members **value** 
-points to its own value and **next** points to the next node in the queue.
+Since the required running time is O(1), so we cannot array to implement the
+queue. In this case, our queue is implemented as a linked list, and has three
+members **head**, **tail**, and **size**. **head** and **tail** point to the 
+first and the lastnode in the queue, and the **size** keeps track of the
+length of the queue.We also created a struct for each node in the queue, which
+has members **value** points to its own value and **next** points to the next 
+node in the queue.
 
 #### Implemented Functions for Queue
 Functions _queue\_enqueue_ and _queue\_dequeue_ work properly by changing what 
