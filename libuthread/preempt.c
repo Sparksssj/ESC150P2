@@ -27,7 +27,7 @@ void termination_handler ()
 
 void preempt_start(void)
 {
-	signal_handler.sa_handler = termination_handler
+	signal_handler.sa_handler = termination_handler;
     // Set the mask to include SIGVTALRM only
     sigemptyset(&signal_sets);
     sigaddset(&signal_sets, SIGVTALRM);
